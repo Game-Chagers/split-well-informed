@@ -1,0 +1,33 @@
+services:
+  # 1. THE DATABASE
+  db:
+    image: postgres:18
+    container_name: split_db
+    restart: always
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    ports:
+      - "5432:5432" # Exposes DB to your laptop on port 5432
+    volumes:
+      - pg_data:/var/lib/postgresql/data # This is the "Local Storage" magic
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  app:
+      build: ../split-well-informed
+      container_name: split_app
+      depends_on:
+        db:
+          condition: service_healthy # App only starts when DB is actually ready
+      ports:
+        - "8000:8081"
+      env_file: .env # Injects your secrets
+      environment:
+        - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+
+volumes:
+  pg_data: # Defines the named volume
