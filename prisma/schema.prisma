@@ -4,7 +4,12 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
-// npx prisma generate
+// Update PostgreSQL database tables:       npx prisma migrate dev --name update_name
+
+// Update TypeScript code in node_modules:  npx prisma generate
+// ^(Not necessary after migrate)
+
+// Apply all new migrations not just added: npx prisma deploy
 
 datasource db {
   provider = "postgresql"

@@ -1,3 +1,5 @@
+// Run server to test: node server/index.js
+
 const express = require('express');   // Allows creating paths for API
 const cors = require('cors');         // Adds special HTTP headers to tell browser to allow requests from different domains (our react native expo code)
 const { PrismaClient } = require('@prisma/client');
