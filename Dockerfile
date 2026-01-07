@@ -10,7 +10,7 @@ COPY package*.json ./
 # Install app dependencies
 RUN npm install
 
-# Copy the rest of the app into the image
+# Copy the current directory . in the project to the workdir . in the image. // from dockerdocs
 COPY . .
 
 # Set port environment variable

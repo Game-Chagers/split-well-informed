@@ -11,7 +11,7 @@ services:
     ports:
       - "5432:5432" # Exposes DB to your laptop on port 5432
     volumes:
-      - pg_data:/var/lib/postgresql/data # This is the "Local Storage" magic
+      - pg_data:/var/lib/postgresql # This is the "Local Storage" magic
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
