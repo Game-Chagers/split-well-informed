@@ -5,6 +5,12 @@
   "type": "module",
   "scripts": {
     "start": "expo start",
+    "server": "tsx server/index.ts",
+    "server:dev": "tsx watch server/index.ts",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:start": "docker compose start",
+    "db:stop": "docker compose stop",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
@@ -52,6 +58,7 @@
     "eslint-config-expo": "~10.0.0",
     "nodemon": "^3.1.11",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "~5.9.2"
   },
   "private": true,

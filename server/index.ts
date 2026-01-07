@@ -1,8 +1,8 @@
 // Run server to test: node server/index.js
 
-const express = require('express');   // Allows creating paths for API
-const cors = require('cors');         // Adds special HTTP headers to tell browser to allow requests from different domains (our react native expo code)
-const { PrismaClient } = require('@prisma/client');
+import express, { Request, Response } from 'express';   // Allows creating paths for API
+import cors from 'cors';                                // Adds special HTTP headers to tell browser to allow requests from different domains (our react native expo code)
+import { PrismaClient } from '@prisma/client';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -12,7 +12,7 @@ app.use(express.json());
 app.use(cors());
 
 // Create a new user
-app.post('/users', async (req, res) => {
+app.post('/users', async (req: Request, res: Response) => {
   try {
     const { email, name } = req.body;
     const newUser = await prisma.user.create({
@@ -25,12 +25,12 @@ app.post('/users', async (req, res) => {
     res.json(newUser);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: (error as Error).message });
   }
 });
 
 // Get all users
-app.get('/users', async (req, res) => {
+app.get('/users', async (req: Request, res: Response) => {
   const users = await prisma.user.findMany();
   res.json(users);
 });
