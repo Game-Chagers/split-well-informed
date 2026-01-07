@@ -16,7 +16,7 @@ COPY . .
 # Set port environment variable
 ENV PORT=8081
 
-# Expose port so computer can access it
+# Expose port so computer can access it (does nothing, just for documentation)
 EXPOSE 8081
 
 # Run the app
