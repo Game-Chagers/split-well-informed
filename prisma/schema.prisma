@@ -4,14 +4,7 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
-// generator client {
-//   provider = "prisma-client-js"
-//   output   = "../src/generated/prisma"
-// }
-
-// datasource db {
-//   provider = "postgresql"
-// }
+// npx prisma generate
 
 datasource db {
   provider = "postgresql"
@@ -23,9 +16,82 @@ generator client {
 }
 
 model User {
-  id            Int             @id @default(autoincrement())
-  name          String
-  email         String          @unique
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id                Int             @id @default(autoincrement())
+  name              String
+  email             String          @unique
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  groups            GroupMember[]
+  paidExpenses      Expense[]       @relation("Payer")    // Expenses I paid
+  owedExpenses      ExpenseSplit[]                        // Splits I owe money for
+  sentPayments      Payment[]       @relation("Sender")   // Payments I made to others
+  receivedPayments  Payment[]       @relation("Receiver") // Payments I received from others
 }
+
+model Group {
+  id                Int             @id @default(autoincrement())
+  name              String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  members           GroupMember[]
+  expenses          Expense[]
+  payments          Payment[]
+}
+
+// Join table: Connects users to Groups
+model GroupMember {
+  id                Int             @id @default(autoincrement())
+  userId            Int
+  groupId           Int
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group             Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  @@unique([userId, groupId])       // Prevents adding same user twice
+  @@index([userId])
+  @@index([groupId])
+}
+
+model Expense {
+  id                Int             @id @default(autoincrement())
+  description       String
+  category          String?         // Optional
+  amount            Float           // Total expense
+  currency          String          @default("USD")
+  date              DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  payerId           Int
+  payer             User            @relation("Payer", fields: [payerId], references: [id], onDelete: Cascade)
+  groupId           Int
+  group             Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  splits            ExpenseSplit[]
+  @@index([groupId])
+  @@index([payerId])
+  @@index([date])
+}
+
+model ExpenseSplit {
+  id                Int             @id @default(autoincrement())
+  expenseId         Int
+  userId            Int             // Person who "consumed" this part of expense
+  amount            Float           // How much this person owes
+  settled           Boolean         @default(false)   // Has the split been settled?
+  expense           Expense         @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user              User            @relation(fields: [userId], references: [id])
+  @@index([expenseId])
+  @@index([userId])
+}
+
+model Payment {
+  id                Int             @id @default(autoincrement())
+  amount            Float
+  date              DateTime        @default(now())
+  groupId           Int
+  group             Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  senderId          Int
+  sender            User            @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId        Int
+  receiver          User            @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  @@index([groupId])
+  @@index([senderId])
+  @@index([receiverId])
+}
+
