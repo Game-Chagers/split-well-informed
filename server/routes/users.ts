@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
 import { prisma } from '../db';
 
 const router = Router();
@@ -7,6 +7,11 @@ const router = Router();
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { email, name } = req.body;
+
+    if (!email.includes('@')) {
+      res.status(400).json({ error: 'Invalid email' });
+    }
+
     const newUser = await prisma.user.create({
       data: { email, name },
     });
@@ -32,6 +37,10 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/search', async (req: Request, res: Response) => {
   try {
     const { id, email } = req.query;
+
+    if (!email || !(email as string).includes('@')) {
+      res.status(400).json({ error: 'Invalid email' });
+    }
 
     let user;
 
