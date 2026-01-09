@@ -6,14 +6,14 @@ const router = Router();
 // Create new user
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { email, name } = req.body;
+    const { newEmail, newName } = req.body;
 
-    if (!email.includes('@')) {
+    if (!newEmail.includes('@')) {
       res.status(400).json({ error: 'Invalid email' });
     }
 
     const newUser = await prisma.user.create({
-      data: { email, name },
+      data: { email: newEmail, name: newName },
     });
     res.json(newUser);
   } catch (error) {
@@ -62,6 +62,25 @@ router.get('/search', async (req: Request, res: Response) => {
       res.status(404).json({ error: 'User not found' });
     }
     
+    res.json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// Claim guest account
+router.post('/claim-account', async (req: Request, res: Response) => {
+  try {
+    const { userId, email } = req.body;
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        email,
+        isGuest: false,
+      }
+    });
     res.json(user);
   } catch (error) {
     console.error(error);
