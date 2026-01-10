@@ -49,8 +49,6 @@ group.post("/", async (req: Request, res: Response) => {
     const userIds = await Promise.all(
       members.map(async (member: { name: string, email?: string, id?: string }) => {
         let user;
-
-        // (Registered user information will need to be validated to exist before this)
         
         // Try to find existing user by email
         if (member.email) {
