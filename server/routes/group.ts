@@ -3,15 +3,6 @@ import { prisma } from "../db";
 
 const group = Router();
 
-group.get("/:group_id", (req: Request, res: Response) => {
-  const g = prisma.Group.findUnique({
-    where: {
-      id: req.params.id,
-    },
-  });
-  res.json(g);
-});
-
 // interface create_group {
 //     name: string;
 //     members: string[];
@@ -42,7 +33,7 @@ group.get("/:group_id", (req: Request, res: Response) => {
 //     { name: "GuestName", email: "", id: "" },              // Guest member
 // ]
 
-group.post("/", async (req: Request, res: Response) => {
+group.post("/new-group", async (req: Request, res: Response) => {
   try {
     const { name, members } = req.body;
 
@@ -54,7 +45,8 @@ group.post("/", async (req: Request, res: Response) => {
         if (member.email) {
           user = await prisma.user.findUnique({ where: { email: member.email }});
           if (!user) {
-            user = await prisma.user.create({ data: { name: member.name, email: member.email, isGuest: false } });
+            console.error( {message: `User with email ${member.email} not found`});
+            throw new Error(`User with email ${member.email} not found`);
           }
         }
 
@@ -94,6 +86,37 @@ group.post("/", async (req: Request, res: Response) => {
     res.status(500).json({ error: (error as Error).message });
   }
 });
+
+group.get("/list-all", async (req: Request, res: Response) => {
+  try {
+    const groups = prisma.group.findMany({ include: { members: true } });
+    res.json(groups);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// This must be last (express checks route matches in the order they're defined)
+group.get("/:group_id", async (req: Request, res: Response) => {
+  try {
+    const g = prisma.group.findUnique({
+      where: {
+        id: parseInt(req.params.id),
+      },
+      include: {
+        members: true,
+        expenses: true,
+        payments: true,
+      }
+    });
+    res.json(g);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 
 group
   .route("/:id/members")
