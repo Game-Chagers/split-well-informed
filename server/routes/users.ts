@@ -1,15 +1,15 @@
-import { Request, Response, Router } from 'express';
-import { prisma } from '../db';
+import { Request, Response, Router } from "express";
+import { prisma } from "../db";
 
 const router = Router();
 
 // Create new user
-router.post('/', async (req: Request, res: Response) => {
+router.post("/", async (req: Request, res: Response) => {
   try {
     const { newEmail, newName } = req.body;
 
-    if (!newEmail.includes('@')) {
-      res.status(400).json({ error: 'Invalid email' });
+    if (!newEmail.includes("@")) {
+      res.status(400).json({ error: "Invalid email" });
     }
 
     const newUser = await prisma.user.create({
@@ -23,7 +23,7 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // Get all users
-router.get('/', async (req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
     const users = await prisma.user.findMany();
     res.json(users);
@@ -34,12 +34,12 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // Get specific user by id or email
-router.get('/search', async (req: Request, res: Response) => {
+router.get("/search", async (req: Request, res: Response) => {
   try {
     const { id, email } = req.query;
 
-    if (!email || !(email as string).includes('@')) {
-      res.status(400).json({ error: 'Invalid email' });
+    if (!email || !(email as string).includes("@")) {
+      res.status(400).json({ error: "Invalid email" });
     }
 
     let user;
@@ -55,13 +55,13 @@ router.get('/search', async (req: Request, res: Response) => {
         include: { groups: true },
       });
     } else {
-      res.status(400).json({ error: 'Must provide id or email' });
+      res.status(400).json({ error: "Must provide id or email" });
     }
 
     if (!user) {
-      res.status(404).json({ error: 'User not found' });
+      res.status(404).json({ error: "User not found" });
     }
-    
+
     res.json(user);
   } catch (error) {
     console.error(error);
@@ -70,7 +70,7 @@ router.get('/search', async (req: Request, res: Response) => {
 });
 
 // Claim guest account
-router.post('/claim-account', async (req: Request, res: Response) => {
+router.post("/claim-account", async (req: Request, res: Response) => {
   try {
     const { userId, email } = req.body;
 
@@ -79,7 +79,7 @@ router.post('/claim-account', async (req: Request, res: Response) => {
       data: {
         email,
         isGuest: false,
-      }
+      },
     });
     res.json(user);
   } catch (error) {
@@ -88,4 +88,4 @@ router.post('/claim-account', async (req: Request, res: Response) => {
   }
 });
 
-export default router; 
+export default router;
