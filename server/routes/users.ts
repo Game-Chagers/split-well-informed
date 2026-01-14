@@ -1,10 +1,10 @@
 import { Request, Response, Router } from "express";
 import { prisma } from "../db";
 
-const router = Router();
+const user = Router();
 
 // Create new user
-router.post("/", async (req: Request, res: Response) => {
+user.post("/", async (req: Request, res: Response) => {
   try {
     const { newEmail, newName } = req.body;
 
@@ -22,36 +22,46 @@ router.post("/", async (req: Request, res: Response) => {
   }
 });
 
-// Get all users
-router.get("/", async (req: Request, res: Response) => {
+// Get all users or search by email
+user.get("/", async (req: Request, res: Response) => {
   try {
-    const users = await prisma.user.findMany();
-    res.json(users);
+    // Search by email if email query given
+    const email = req.query.email;
+    if (email) {
+      if (!(email as string).includes("@")) {
+        return res.status(400).json({ error: "Invalid email format" });
+      }
+      const user = await prisma.user.findUnique({
+        where: { email: email as string },
+        include: { groups: true },
+      });
+      if (!user) {
+        return res.status(404).json({ error: `User with email ${email} not found` });
+      } else {
+        return res.json(user);
+      }
+    }
+
+    // Get all users
+    else {
+      const users = await prisma.user.findMany();
+      res.json(users);
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: (error as Error).message });
   }
 });
 
-// Get specific user by id or email
-router.get("/search", async (req: Request, res: Response) => {
+// Get specific user by id
+user.get("/:userId", async (req: Request, res: Response) => {
   try {
-    const { id, email } = req.query;
-
-    if (!email || !(email as string).includes("@")) {
-      res.status(400).json({ error: "Invalid email" });
-    }
-
+    const userId = req.params.userId;
     let user;
 
-    if (id) {
+    if (userId) {
       user = await prisma.user.findUnique({
-        where: { id: parseInt(id as string) },
-        include: { groups: true },
-      });
-    } else if (email) {
-      user = await prisma.user.findUnique({
-        where: { email: email as string },
+        where: { id: parseInt(userId) },
         include: { groups: true },
       });
     } else {
@@ -59,33 +69,73 @@ router.get("/search", async (req: Request, res: Response) => {
     }
 
     if (!user) {
-      res.status(404).json({ error: "User not found" });
+      res.status(404).json({ error: `User with ID ${userId} not found` });
+    } else {
+      res.json(user);
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// Update account (including claiming guest account)
+user.patch("/:userId", async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const { name, email, isGuest } = req.body;
+
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
     }
 
-    res.json(user);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
+    if (email && !email.includes("@")) {
+      return res.status(400).json({ error: "Invalid email" });
+    }
 
-// Claim guest account
-router.post("/claim-account", async (req: Request, res: Response) => {
-  try {
-    const { userId, email } = req.body;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      return res.status(404).json({ error: `User with ID ${userId} not found` });
+    }
 
-    const user = await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        email,
-        isGuest: false,
+        email: email,
+        name: name,
+        isGuest: isGuest,
       },
     });
-    res.json(user);
+
+    res.json(updatedUser);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: (error as Error).message });
   }
 });
 
-export default router;
+// Delete user
+user.delete("/:userId", async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId);
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    if (!user) {
+      return res.status(404).json({ error: `User with ID ${userId} not found` });
+    }
+
+    const deletedUser = await prisma.user.delete({
+      where: { id: userId },
+    });
+    res.json(deletedUser);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error as Error });
+  }
+});
+
+export default user;
