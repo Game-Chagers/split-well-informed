@@ -16,7 +16,11 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "jest"
+    "test:db:up": "docker compose -f compose.test.yml up -d",
+    "test:db:down": "docker compose -f compose.test.yml down",
+    "pretest": "npm run test:db:up && npx wait-port 5433 && dotenv -e .env.test -- npx prisma db push",
+    "test": "dotenv -e .env.test -- vitest run",
+    "posttest": "npm run test:db:down"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -48,26 +52,27 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-web": "~0.21.0",
-    "react-native-worklets": "0.5.1"
+    "react-native-worklets": "0.5.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "@types/jest": "^30.0.0",
     "@types/node": "^25.0.2",
     "@types/react": "~19.1.0",
     "@types/supertest": "^6.0.3",
     "dotenv": "^17.2.3",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
-    "jest": "^30.2.0",
     "nodemon": "^3.1.11",
     "supertest": "^7.2.2",
-    "ts-jest": "^29.4.6",
-    "ts-node": "^10.9.2",
+    "ts-node": "^10.9.1",
     "tsx": "^4.21.0",
-    "typescript": "~5.9.2"
+    "typescript": "^5.1.6",
+    "vitest": "^4.0.17",
+    "vitest-mock-extended": "^3.1.0"
   },
   "private": true,
   "description": "This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).",

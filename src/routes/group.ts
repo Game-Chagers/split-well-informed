@@ -1,10 +1,10 @@
 import { Request, Response, Router } from 'express';
-import { prisma } from '../db';
+import prisma from '../db.js';
 
 const group = Router()
 
 group.get('/:group_id', (req: Request, res: Response) => {
-    const g = prisma.Group.findUnique({
+    const g = prisma.group.findUnique({
         where: {
             id: req.params.id
         }
@@ -13,15 +13,13 @@ group.get('/:group_id', (req: Request, res: Response) => {
 })
 interface create_group {
     name: string;
-    members: string[];
-    tentativeMem: string[];
+    members: { id: string, name: string, email:string }[];
 }
 group.post('/', (req: Request, res: Response) => {
     const g: create_group = req.body
     const members = g.members.map(id => { connect: { id } })
-    members.concat(g.tentativeMem.map(name => { name }))
     console.log(members)
-    const created_group = prisma.Group.create({
+    const created_group = prisma.group.create({
         data: {
             name: g.name,
             members: {

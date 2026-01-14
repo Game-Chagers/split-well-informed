@@ -1,0 +1,6 @@
+services:
+  test-db:
+    image: postgres:18
+    env_file: .env.test
+    ports:
+      - "5433:5432" # Map to 5433 to avoid conflict with your dev DB
