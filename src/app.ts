@@ -5,34 +5,11 @@ import prisma from './db.js';
 import group from './routes/group.js';
 
 const app = express();
-// Allow JSON data to be sent to server
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors());
-app.use('/group', group)
-
-// Create a new user
-app.post('/users', async (req: Request, res: Response) => {
-  try {
-    const { email, name } = req.body;
-    const newUser = await prisma.user.create({
-      data: {
-        email: email,
-        name: name,
-      },
-    });
-    // Send result back
-    res.json(newUser);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
-
-// Get all users
-app.get('/users', async (req: Request, res: Response) => {
-  const users = await prisma.user.findMany();
-  res.json(users);
-});
+app.use("/group", group);
+app.use("/user", user);
 
 export default app;

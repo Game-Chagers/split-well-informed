@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-
 import {View, ScrollView, Text, TextInput, Button, StyleSheet } from 'react-native';
 
 const API_URL = 'http://192.168.1.178:3000';
 
-export default function TestScreen() {
+export default function UsersScreen() {
   const [users, setUsers] = useState<any[]>([]);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
