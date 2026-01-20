@@ -13,7 +13,7 @@ user.post("/", async (req: Request, res: Response) => {
     }
 
     const newUser = await prisma.user.create({
-      data: { email: newEmail, name: newName },
+      data: { email: newEmail, name: newName, isGuest: false },
     });
     res.json(newUser);
   } catch (error) {

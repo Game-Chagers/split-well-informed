@@ -1,6 +1,6 @@
-import prisma from '../db.js'
+import { PrismaClient } from '@prisma/client'
 
-export default async function clear_columns(){
+export default async function clear_columns(prisma : PrismaClient){
     const tablenames = await prisma.$queryRaw<Array<{ tablename: string }>>`SELECT tablename FROM pg_tables WHERE schemaname='public'`
 
     const tables = tablenames

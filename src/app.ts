@@ -1,7 +1,6 @@
 import cookieParser from 'cookie-parser';
 import cors from 'cors'; // Adds special HTTP headers to tell browser to allow requests from different domains (our react native expo code)
-import express, { Request, Response } from 'express'; // Allows creating paths for API
-import prisma from './db.js';
+import express from 'express'; // Allows creating paths for API
 import group from './routes/group.js';
 
 const app = express();
@@ -10,29 +9,6 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(cors());
 app.use('/group', group)
-
-// Create a new user
-app.post('/users', async (req: Request, res: Response) => {
-  try {
-    const { email, name } = req.body;
-    const newUser = await prisma.user.create({
-      data: {
-        email: email,
-        name: name,
-      },
-    });
-    // Send result back
-    res.json(newUser);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
-
-// Get all users
-app.get('/users', async (req: Request, res: Response) => {
-  const users = await prisma.user.findMany();
-  res.json(users);
-});
+app.use('/user', group)
 
 export default app;

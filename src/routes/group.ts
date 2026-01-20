@@ -1,5 +1,7 @@
+import { Prisma } from "@prisma/client";
 import { Request, Response, Router } from "express";
 import prisma from "../db.js";
+import { authenticate } from "./middleware/auth.js";
 
 const group = Router();
 
@@ -23,66 +25,43 @@ async function findUserByEmailOrID(id?: string, email?: string) {
     throw error;
   }
 }
-
-// interface create_group {
-//     name: string;
-//     members: string[];
-//     tentativeMem: string[];
-// }
-// group.post('/', (req: Request, res: Response) => {
-//     const g: create_group = req.body
-//     const members = g.members.map(id => { connect: { id } })
-//     members.concat(g.tentativeMem.map(name => { name }))
-//     console.log(members)
-//     const created_group = prisma.Group.create({
-//         data: {
-//             name: g.name,
-//             members: {
-//                 createMany: {
-//                     data: members
-//                 }
-//             }
-//         },
-//     })
-//     console.log(created_group)
-//     res.json()
-// })
-
-// Intended members structure:
-// members: [
-//     { name: "Name", email: "name@email.com", id: "ID" },   // Registered member
-//     { name: "GuestName", email: "", id: "" },              // Guest member
-// ]
-
 // Create new group
-group.post("/", async (req: Request, res: Response) => {
+group.post("/", authenticate, async (req: Request, res: Response) => {
   try {
-    const { name, members } = req.body;
-
-    const userIds = await Promise.all(
-      members.map(
-        async (member: { name: string; email?: string; id?: string }) => {
-          let user;
-
-          user = await findUserByEmailOrID(member.id, member.email);
-
-          // Create guest user
-          if (!user) {
-            user = await prisma.user.create({
-              data: { name: member.name, isGuest: true },
-            });
+    if(!req.body || !req.body.name){
+      res.status(400).json({ error: 'Bad Request' })
+      return
+    }
+    const members = req.body.members ?? []
+    
+    const user_join = members.map((member:{name?:string, email?:string, id?:number})=>{
+      if(member.id != undefined){ // should fail completely on connected records were not found. Unknown id in request means problem
+        return { user: {
+          connect: { id: member.id }
+        }}
+      } 
+      else if(member.email){
+        return { user: {
+          connectOrCreate: {
+            where: { email: member.email },
+            create: { name: member.name ?? member.email.split('@')[0], email: member.email, isGuest: true }
           }
-
-          return user.id;
-        }
-      )
-    );
-
+        }}
+      }
+      else if(member.name){
+        return { user: {
+          create: { name: member.name, isGuest: true }
+        }}
+      }
+    })
     const newGroup = await prisma.group.create({
       data: {
-        name: name,
+        name: req.body.name,
         members: {
-          create: userIds.map((userId) => ({ userId })),
+          create: [
+            { user: { connect: { id: (req as any).userId } } },
+            ...user_join
+          ]
         },
       },
       include: {
@@ -90,9 +69,13 @@ group.post("/", async (req: Request, res: Response) => {
       },
     });
 
-    res.json(newGroup);
+    res.status(201).json(newGroup);
   } catch (error) {
     console.error(error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025')
+        return res.status(404).json({ error: "One or more users could not be found." });
+    }
     res.status(500).json({ error: (error as Error).message });
   }
 });

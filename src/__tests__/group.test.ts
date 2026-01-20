@@ -1,50 +1,104 @@
+import { User } from '@prisma/client'
+import jwt from 'jsonwebtoken'
 import request from 'supertest'
-import { validate as uuidValidateV4 } from 'uuid'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import app from '../app.js'
 import prisma from '../db.js'
+
 import clear_columns from './clear.js'
 
 // call create group and ensure a 
 // Group is created along with a group member and connects a user
 
-describe('/group.post', ()=> {
+describe('/group.post', async ()=> {
+    let test_user: User
+    let token: string
     beforeEach(async () => {
-        clear_columns()
+        await clear_columns(prisma)
+        test_user = await prisma.user.create({
+            data: { name: 'test_user', email: 'test_user@email.com' }
+        })
+        token = jwt.sign({ userId: test_user.id }, process.env.JWT_SECRET || 'needs a fallback secret ig')
     })
-    afterEach(async ()=> {
-        const created_group = await prisma.group.findFirst()
-        expect(created_group).not.toBeNull();
-        expect(created_group).toHaveProperty('id');
-        expect(uuidValidateV4(created_group)).toBe(true)
-        expect(created_group).toHaveProperty('name');
+    it('test for creating many to many relations', async ()=>{
+        const newGroup = await prisma.group.create({
+            data: {
+                name: 'many to many group',
+                members: {
+                    create: [
+                        { user: { connect: { id: test_user.id } } } ,
+                        { user: { connectOrCreate: { where: { email:'email@email.com' }, create: { name: 'email', email:'email@email.com' } } } }
+                    ]
+                },
+            },
+            include: {
+                members: { include: { user: true } },
+            },
+        });
+        expect(newGroup).toEqual(expect.objectContaining({ 
+            name: 'many to many group',
+            members: [
+                expect.objectContaining({ user: expect.objectContaining({ name: test_user.name, email:test_user.email, id:test_user.id})}),
+                expect.objectContaining({ user: expect.objectContaining({ name: 'email', email:'email@email.com', })})
+            ]
+        }))
     })
-    it('creates group with no members', async ()=>{
+    it('creates group without auth', async ()=>{
         const res = await request(app)
         .post('/group')
-        .send(JSON.stringify({
+        .send({
             name: 'group_test_name'
-        }))
+        })
+        .expect(401)
+        
+        const group = await prisma.group.findFirst({
+            where: { name: 'group_test_name' }
+        })
+        expect(group).toBeNull()
+    })
+    it('creates group with no added members', async ()=>{
+        
+        const res = await request(app)
+        .post('/group')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+            name: 'group_test_name'
+        })
         .expect('Content-Type', /json/)
         .expect(201)
-        
 
         const new_group = await prisma.group.findUnique({
             where: { id: res.body.id },
-            include: { members: true }
+            include: { 
+                members: {
+                    include: {
+                        user: true
+                    }
+                }
+            }
         });
         
-        expect(new_group?.members).toHaveLength(0)
+        expect(new_group).toEqual(expect.objectContaining({
+            name:'group_test_name',
+            members: [
+                expect.objectContaining({ user: expect.objectContaining({ id: test_user.id }) })
+            ]
+        }))
     })
-    it('creates group with one member without user', async ()=>{
+    it('creates group with members without connected users', async ()=>{
         const res = await request(app)
         .post('/group')
-        .send(JSON.stringify({
-            name: 'group_test_name'
-        }))
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+            name: 'group_test_name', 
+            members: [
+                { name: 'test-user1' }, 
+                { name: 'test-user2', email: 'test-user2@email.com' }, 
+                { email: 'test-user3@email.com' }
+            ]
+        })
         .expect('Content-Type', /json/)
         .expect(201)
-
 
         const new_group = await prisma.group.findUnique({
             where: { id: res.body.id },
@@ -56,29 +110,48 @@ describe('/group.post', ()=> {
                 } 
             }
         });
-        
-        expect(new_group?.members).toHaveLength(1)
-        const member = new_group?.members[0]
-        expect(member).toHaveProperty('userId')
-        expect(member).toHaveProperty('user')
-        const user = member?.user
-        expect(user).not.toHaveProperty('email')
+        const res_obj_form = expect.objectContaining({
+            name:'group_test_name',
+            members: expect.arrayContaining([
+                expect.objectContaining({ userId: test_user.id }),
+                expect.objectContaining({ user: expect.objectContaining({ name: 'test-user1', isGuest:true }) }),
+                expect.objectContaining({ user: expect.objectContaining({ name: 'test-user2', email: 'test-user2@email.com', isGuest:true }) }),
+                expect.objectContaining({ user: expect.objectContaining({ name: 'test-user3', email: 'test-user3@email.com', isGuest:true }) }),
+            ])
+        })
+        expect(new_group).toEqual(res_obj_form)
+        expect(res.body).toEqual(res_obj_form)
     })
-    it('creates group with one member via cookie with user', async ()=>{
-        const test_user = await prisma.user.create({
-            data: { name: 'test_user_for_group', email: 'test_user_for_group@test.com'}
+    it('creates group with an unconnected id', async ()=>{
+        const res = await request(app)
+        .post('/group')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+            name: 'group_test_name',
+            members: [{ id:-1 }]
+        })
+        .expect('Content-Type', /json/)
+        .expect(404)
+
+        
+        const group = await prisma.group.findFirst({
+            where: { name: 'group_test_name' }
+        })
+        expect(group).toBeNull()
+    })
+    it('creates group with connected id', async ()=>{
+        const test_user_connected = await prisma.user.create({
+            data: { name: 'test_user_connected', email: 'test_user_connected@email.com' }
         })
         const res = await request(app)
         .post('/group')
-        .set('Cookie', [`id=${test_user.id}`])
-        .send(JSON.stringify({
-            name: 'group_test_name'
-        }))
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+            name: 'group_test_name',
+            members: [{ id:test_user_connected.id }]
+        })
         .expect('Content-Type', /json/)
         .expect(201)
-
-        expect(res.body).toHaveProperty('id')
-        expect(uuidValidateV4(res.body.id)).toBe(true)
 
         const new_group = await prisma.group.findUnique({
             where: { id: res.body.id },
@@ -91,13 +164,13 @@ describe('/group.post', ()=> {
             }
         });
         
-        expect(new_group?.members).toHaveLength(1)
-        const member = new_group?.members[0]
-        expect(member?.userId).toBe(test_user.id)
-        expect(member).toHaveProperty('user')
-        expect(member?.user?.id).toBe(test_user.id)
-    })
-    // it('', async ()=>{
+        expect(new_group).toEqual(expect.objectContaining({
+            name:'group_test_name',
+            members: expect.arrayContaining([
+                expect.objectContaining({ userId: test_user.id }),
+                expect.objectContaining({ user: expect.objectContaining({ name: 'test_user_connected', email: 'test_user_connected@email.com', id:test_user_connected.id }) })
+            ])
+        }))
         
-    // })
+    })
 })
