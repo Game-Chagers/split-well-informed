@@ -114,7 +114,7 @@ group.get("/:groupId", async (req: Request, res: Response) => {
 });
 
 // Add member to group
-group.post("/:groupId/members", async (req: Request, res: Response) => {
+group.post("/:groupId/member", async (req: Request, res: Response) => {
   try {
     const groupId = parseInt(req.params.groupId);
     const { userId, email } = req.body;
@@ -168,7 +168,7 @@ group.post("/:groupId/members", async (req: Request, res: Response) => {
 
 // Remove member from group
 group.delete(
-  "/:groupId/members/:userId",
+  "/:groupId/member/:userId",
   async (req: Request, res: Response) => {
     try {
       const groupId = parseInt(req.params.groupId);
@@ -249,7 +249,7 @@ group.delete(
 // }
 
 // Add expense to group
-group.post("/:groupId/expenses", async (req: Request, res: Response) => {
+group.post("/:groupId/expense", async (req: Request, res: Response) => {
   try {
     const groupId = parseInt(req.params.groupId);
     const { description, category, amount, payerId, splitType, splits } =
@@ -363,6 +363,7 @@ group.post("/:groupId/expenses", async (req: Request, res: Response) => {
       });
     }
 
+    // Add expense
     const newExpense = await prisma.expense.create({
       data: {
         description: description,
@@ -389,7 +390,7 @@ group.post("/:groupId/expenses", async (req: Request, res: Response) => {
 
 // Delete expense
 group.delete(
-  "/:groupId/expenses/:expenseId",
+  "/:groupId/expense/:expenseId",
   async (req: Request, res: Response) => {
     try {
       const groupId = parseInt(req.params.groupId);
@@ -420,14 +421,19 @@ group.delete(
 );
 
 // Get all expenses from group
-group.get("/:groupId/expenses", async (req: Request, res: Response) => {
+group.get("/:groupId/expense", async (req: Request, res: Response) => {
   try {
     const groupId = parseInt(req.params.groupId);
-    const expenses = await prisma.group.findUnique({
+    const group = await prisma.group.findUnique({
       where: { id: groupId },
       include: { expenses: true },
-    }).expenses;
-    res.json(expenses);
+    });
+
+    if (!group) {
+      return res.status(404).json({ error: `Group with ID ${groupId} not found` });
+    } else {
+      res.json(group.expenses);
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error as Error });
@@ -435,15 +441,15 @@ group.get("/:groupId/expenses", async (req: Request, res: Response) => {
 });
 
 group
-  .route("/:id/members")
+  .route("/:id/member")
   .get((req: Request, res: Response) => {})
   .post((req: Request, res: Response) => {});
 group
-  .route("/:id/expenses")
+  .route("/:id/expense")
   .get((req: Request, res: Response) => {})
   .post((req: Request, res: Response) => {});
 group
-  .route("/:id/payments")
+  .route("/:id/payment")
   .get((req: Request, res: Response) => {})
   .post((req: Request, res: Response) => {});
 

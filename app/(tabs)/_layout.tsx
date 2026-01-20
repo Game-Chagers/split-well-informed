@@ -1,8 +1,8 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { HapticTab } from '../../components/haptic-tab.js';
+import { IconSymbol } from '../../components/ui/icon-symbol.js';
 
 export default function TabLayout() {
   return (
@@ -14,8 +14,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Test',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Users Test',
+          tabBarIcon: ({ color } : { color: string }) => <IconSymbol size={28} name="person.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="groups"
+        options={{
+          title: "Groups Test",
+          tabBarIcon: ({ color } : { color: string }) => <IconSymbol size={28} name="person.3.fill" color={color} />,
         }}
       />
     </Tabs>
