@@ -80,7 +80,6 @@ model ExpenseSplit {
   expenseId         String
   userId            String          // Person who "consumed" this part of expense
   amount            Float           // How much this person owes
-  settled           Boolean         @default(false)   // Has the split been settled?
   expense           Expense         @relation(fields: [expenseId], references: [id], onDelete: Cascade)
   user              User            @relation(fields: [userId], references: [id])
   @@index([expenseId])
@@ -91,6 +90,7 @@ model Payment {
   id                String          @id @default(uuid())
   amount            Float
   date              DateTime        @default(now())
+  settled           Boolean         @default(false)   // Has the split been settled?
   groupId           String
   group             Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
   senderId          String
