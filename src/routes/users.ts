@@ -61,7 +61,7 @@ user.get("/:userId", async (req: Request, res: Response) => {
 
     if (userId) {
       user = await prisma.user.findUnique({
-        where: { id: parseInt(userId) },
+        where: { id: userId },
         include: { groups: true },
       });
     } else {
@@ -82,10 +82,10 @@ user.get("/:userId", async (req: Request, res: Response) => {
 // Update account (including claiming guest account)
 user.patch("/:userId", async (req: Request, res: Response) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = req.params.userId;
     const { name, email, isGuest } = req.body;
 
-    if (isNaN(userId)) {
+    if (!userId || userId.trim() == '') {
       return res.status(400).json({ error: "Invalid user ID" });
     }
 
@@ -119,7 +119,7 @@ user.patch("/:userId", async (req: Request, res: Response) => {
 // Delete user
 user.delete("/:userId", async (req: Request, res: Response) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = req.params.userId;
 
     const user = await prisma.user.findUnique({
       where: { id: userId }

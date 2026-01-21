@@ -9,7 +9,7 @@ async function findUserByEmailOrID(id?: string, email?: string) {
   try {
     let user = null;
     if (id) {
-      user = await prisma.user.findUnique({ where: { id: parseInt(id) } });
+      user = await prisma.user.findUnique({ where: { id: id } });
       if (!user) {
         return null;
       }
@@ -94,7 +94,7 @@ group.get("/", async (req: Request, res: Response) => {
 // Get specific group
 group.get("/:groupId", async (req: Request, res: Response) => {
   try {
-    const groupId = parseInt(req.params.groupId);
+    const groupId = req.params.groupId;
 
     const group = await prisma.group.findUnique({
       where: {
@@ -116,7 +116,7 @@ group.get("/:groupId", async (req: Request, res: Response) => {
 // Add member to group
 group.post("/:groupId/member", async (req: Request, res: Response) => {
   try {
-    const groupId = parseInt(req.params.groupId);
+    const groupId = req.params.groupId;
     const { userId, email } = req.body;
 
     const group = await prisma.group.findUnique({
@@ -171,8 +171,8 @@ group.delete(
   "/:groupId/member/:userId",
   async (req: Request, res: Response) => {
     try {
-      const groupId = parseInt(req.params.groupId);
-      let userId = parseInt(req.params.groupId);
+      const groupId = req.params.groupId;
+      let userId = req.params.groupId;
       const { email } = req.body;
 
       const group = await prisma.group.findUnique({
@@ -184,7 +184,7 @@ group.delete(
           .json({ error: `Group with ID ${groupId} not found` });
       }
 
-      if (isNaN(userId)) {
+      if (!userId || userId.trim() == '') {
         if (!email) {
           return res
             .status(400)
@@ -251,7 +251,7 @@ group.delete(
 // Add expense to group
 group.post("/:groupId/expense", async (req: Request, res: Response) => {
   try {
-    const groupId = parseInt(req.params.groupId);
+    const groupId = req.params.groupId;
     const { description, category, amount, payerId, splitType, splits } =
       req.body;
 
@@ -393,8 +393,8 @@ group.delete(
   "/:groupId/expense/:expenseId",
   async (req: Request, res: Response) => {
     try {
-      const groupId = parseInt(req.params.groupId);
-      const expenseId = parseInt(req.params.expenseId);
+      const groupId = req.params.groupId;
+      const expenseId = req.params.expenseId;
 
       const expense = await prisma.expense.findUnique({
         where: { id: expenseId },
@@ -423,7 +423,7 @@ group.delete(
 // Get all expenses from group
 group.get("/:groupId/expense", async (req: Request, res: Response) => {
   try {
-    const groupId = parseInt(req.params.groupId);
+    const groupId = req.params.groupId;
     const group = await prisma.group.findUnique({
       where: { id: groupId },
       include: { expenses: true },
