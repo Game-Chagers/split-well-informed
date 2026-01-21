@@ -21,9 +21,10 @@ generator client {
 }
 
 model User {
-  id                Int             @id @default(autoincrement())
+  id                String          @id @default(uuid())
   name              String
   email             String?         @unique
+  password          String?
   isGuest           Boolean         @default(true)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -35,7 +36,7 @@ model User {
 }
 
 model Group {
-  id                Int             @id @default(autoincrement())
+  id                String          @id @default(uuid())
   name              String
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -46,9 +47,9 @@ model Group {
 
 // Join table: Connects users to Groups
 model GroupMember {
-  id                Int             @id @default(autoincrement())
-  userId            Int
-  groupId           Int
+  id                String          @id @default(uuid())
+  userId            String
+  groupId           String
   user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   group             Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
   @@unique([userId, groupId])       // Prevents adding same user twice
@@ -57,16 +58,16 @@ model GroupMember {
 }
 
 model Expense {
-  id                Int             @id @default(autoincrement())
+  id                String          @id @default(uuid())
   description       String
   category          String?         // Optional
   amount            Float           // Total expense
   currency          String          @default("USD")
   date              DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
-  payerId           Int
+  payerId           String
   payer             User            @relation("Payer", fields: [payerId], references: [id], onDelete: Cascade)
-  groupId           Int
+  groupId           String
   group             Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
   splits            ExpenseSplit[]
   @@index([groupId])
@@ -75,9 +76,9 @@ model Expense {
 }
 
 model ExpenseSplit {
-  id                Int             @id @default(autoincrement())
-  expenseId         Int
-  userId            Int             // Person who "consumed" this part of expense
+  id                String          @id @default(uuid())
+  expenseId         String
+  userId            String          // Person who "consumed" this part of expense
   amount            Float           // How much this person owes
   settled           Boolean         @default(false)   // Has the split been settled?
   expense           Expense         @relation(fields: [expenseId], references: [id], onDelete: Cascade)
@@ -87,14 +88,14 @@ model ExpenseSplit {
 }
 
 model Payment {
-  id                Int             @id @default(autoincrement())
+  id                String          @id @default(uuid())
   amount            Float
   date              DateTime        @default(now())
-  groupId           Int
+  groupId           String
   group             Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  senderId          Int
+  senderId          String
   sender            User            @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
-  receiverId        Int
+  receiverId        String
   receiver          User            @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
   @@index([groupId])
   @@index([senderId])
