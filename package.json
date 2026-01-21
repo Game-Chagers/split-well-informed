@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "expo start",
-    "server": "tsx server/index.ts",
-    "server:dev": "tsx watch server/index.ts",
+    "server": "tsx src/index.ts",
+    "server:dev": "tsx watch src/index.ts",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:start": "docker compose start",
