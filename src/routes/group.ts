@@ -10,7 +10,7 @@ async function findUserByEmailOrID(id?: string, email?: string) {
   try {
     let user = null;
     if (id) {
-      user = await prisma.user.findUnique({ where: { id: parseInt(id) } });
+      user = await prisma.user.findUnique({ where: { id: id } });
       if (!user) {
         return null;
       }
@@ -109,7 +109,7 @@ group.get("/", async (req: Request, res: Response) => {
 // Get specific group
 group.get("/:groupId", verify_group, async (req: Request, res: Response) => {
   try {
-    const groupId = parseInt(req.params.groupId);
+    const groupId = req.params.groupId;
 
     const group = await prisma.group.findUnique({
       where: {

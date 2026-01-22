@@ -11,7 +11,7 @@ export default function UsersScreen() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch(`${API_URL}/users`);
+      const response = await fetch(`${API_URL}/user`);
       const data = await response.json();
       setUsers(data);
     } catch (error) {
@@ -22,7 +22,7 @@ export default function UsersScreen() {
   const createUser = async () => {
     try {
       if (name != '' && email != '') {
-        const response = await fetch(`${API_URL}/users`, {
+        const response = await fetch(`${API_URL}/user`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email }),
