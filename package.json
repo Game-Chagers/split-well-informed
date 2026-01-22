@@ -19,7 +19,7 @@
     "test:db:up": "docker compose -f compose.test.yml up -d",
     "test:db:down": "docker compose -f compose.test.yml down",
     "pretest": "npm run test:db:up && npx wait-port 5433 && dotenv -e .env.test -- npx prisma db push",
-    "test": "dotenv -e .env.test -- vitest run",
+    "test": "dotenv -e .env.test -- vitest run ",
     "posttest": "npm run test:db:down"
   },
   "dependencies": {

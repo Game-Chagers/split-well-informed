@@ -1,0 +1,17 @@
+// vitest.config.unit.ts
+
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    fileParallelism: false,
+    include: ["src/**/*.test.ts"],
+  },
+  resolve: {
+    alias: {
+      auth: "/src/auth",
+      quotes: "/src/quotes",
+      lib: "/src/lib",
+    },
+  },
+});
