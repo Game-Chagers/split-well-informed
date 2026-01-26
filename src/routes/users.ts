@@ -1,21 +1,35 @@
+import bcrypt from "bcryptjs";
 import { Request, Response, Router } from "express";
+import { UUID } from "node:crypto";
 import prisma from "../db.js";
+import { authenticate } from "./middleware/auth.js";
 
-const user = Router();
+const user = Router({ mergeParams: true });
 
 // Create new user
 user.post("/", async (req: Request, res: Response) => {
   try {
-    const { newEmail, newName } = req.body;
-
-    if (!newEmail.includes("@")) {
+    const { email, name, password } = req.body;
+    if (!email || !name || !password) {
+      res.status(400).json({ error: "Bad format for user" });
+    }
+    if (!email.includes("@")) {
       res.status(400).json({ error: "Invalid email" });
     }
 
-    const newUser = await prisma.user.create({
-      data: { email: newEmail, name: newName, isGuest: false },
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = await prisma.user.upsert({
+      where: { email },
+      update: { name, password: hashedPassword, isGuest: false },
+      create: {
+        email,
+        name,
+        password: hashedPassword,
+        isGuest: false,
+      },
     });
-    res.json(newUser);
+    const { password: _, ...userWithoutPassword } = newUser;
+    res.status(201).json(userWithoutPassword);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: (error as Error).message });
@@ -36,7 +50,9 @@ user.get("/", async (req: Request, res: Response) => {
         include: { groups: true },
       });
       if (!user) {
-        return res.status(404).json({ error: `User with email ${email} not found` });
+        return res
+          .status(404)
+          .json({ error: `User with email ${email} not found` });
       } else {
         return res.json(user);
       }
@@ -65,7 +81,7 @@ user.get("/:userId", async (req: Request, res: Response) => {
         include: { groups: true },
       });
     } else {
-      res.status(400).json({ error: "Must provide id or email" });
+      res.status(400).json({ error: "Must provide id" });
     }
 
     if (!user) {
@@ -79,37 +95,21 @@ user.get("/:userId", async (req: Request, res: Response) => {
   }
 });
 
-// Update account (including claiming guest account)
-user.patch("/:userId", async (req: Request, res: Response) => {
+// Update account
+user.patch("/", authenticate, async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
-    const { name, email, isGuest } = req.body;
-
-    if (!userId || userId.trim() == '') {
-      return res.status(400).json({ error: "Invalid user ID" });
-    }
-
-    if (email && !email.includes("@")) {
-      return res.status(400).json({ error: "Invalid email" });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-    if (!user) {
-      return res.status(404).json({ error: `User with ID ${userId} not found` });
-    }
+    const userId = (req as any).userId;
+    const { name, email } = req.body;
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         email: email,
         name: name,
-        isGuest: isGuest,
       },
     });
 
-    res.json(updatedUser);
+    res.status(201).json(updatedUser);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: (error as Error).message });
@@ -119,13 +119,15 @@ user.patch("/:userId", async (req: Request, res: Response) => {
 // Delete user
 user.delete("/:userId", async (req: Request, res: Response) => {
   try {
-    const userId = req.params.userId;
+    const userId = req.params.userId as UUID;
 
     const user = await prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: userId },
     });
     if (!user) {
-      return res.status(404).json({ error: `User with ID ${userId} not found` });
+      return res
+        .status(404)
+        .json({ error: `User with ID ${userId} not found` });
     }
 
     const deletedUser = await prisma.user.delete({

@@ -84,7 +84,7 @@ group.post("/", async (req: Request, res: Response) => {
 
     res.status(201).json(newGroup);
   } catch (error) {
-    // console.error(error);
+    console.error(error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2025")
         return res
@@ -109,7 +109,7 @@ group.get("/", async (req: Request, res: Response) => {
 // Get specific group
 group.get("/:groupId", verify_group, async (req: Request, res: Response) => {
   try {
-    const groupId = req.params.groupId;
+    const groupId = (req as any).groupId;
 
     const group = await prisma.group.findUnique({
       where: {
@@ -134,7 +134,7 @@ group.post(
   verify_group,
   async (req: Request, res: Response) => {
     try {
-      const groupId = parseInt(req.params.groupId);
+      const groupId = req.params.groupId;
       const { userId, email } = req.body;
 
       const user = await findUserByEmailOrID(userId, email);
@@ -184,7 +184,7 @@ group.delete(
   verify_group,
   async (req: Request, res: Response) => {
     const groupId = (req as any).groupId;
-    const del_user = parseInt(req.params.userId);
+    const del_user = req.params.userId;
     try {
       const groupMember = await prisma.groupMember.delete({
         where: {

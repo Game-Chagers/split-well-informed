@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import { UUID } from "node:crypto";
 import prisma from "../../db.js";
 
 export const authenticate = (
@@ -31,24 +32,29 @@ export const verify_group = async (
   next: NextFunction,
 ) => {
   const userId = (req as any).userId;
-  const groupId = parseInt(req.params.groupId);
-
-  const member = await prisma.groupMember.findUnique({
-    where: {
-      userId_groupId: {
-        userId: userId,
-        groupId: groupId,
+  const groupId = req.params.groupId as UUID;
+  try {
+    const member = await prisma.groupMember.findUnique({
+      where: {
+        userId_groupId: {
+          userId: userId,
+          groupId: groupId,
+        },
       },
-    },
-  });
+    });
 
-  if (member === null) {
-    if ((await prisma.group.findUnique({ where: { id: groupId } })) === null) {
-      return res
-        .status(404)
-        .json({ error: `Group with ID ${groupId} not found` });
+    if (member === null) {
+      if (
+        (await prisma.group.findUnique({ where: { id: groupId } })) === null
+      ) {
+        return res
+          .status(404)
+          .json({ error: `Group with ID ${groupId} not found` });
+      }
+      return res.status(400).json({ error: "User doesn't belong to group" });
     }
-    return res.status(400).json({ error: "User doesn't belong to group" });
+  } catch (error) {
+    res.status(400).json({ error: "Bad userId or groupId format" });
   }
   (req as any).groupId = groupId;
   next();
@@ -61,7 +67,7 @@ export const verify_expense = async (
 ) => {
   const userId = (req as any).userId;
   const groupId = (req as any).groupId;
-  const expenseId = parseInt(req.params.expenseId);
+  const expenseId = req.params.expenseId as UUID;
 
   const expense = await prisma.expense.findUnique({
     where: { id: expenseId },

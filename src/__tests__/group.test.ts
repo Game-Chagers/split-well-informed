@@ -172,7 +172,7 @@ describe("/group.post", async () => {
       .set("Authorization", `Bearer ${token}`)
       .send({
         name: "group_test_name",
-        members: [{ id: -1 }],
+        members: [{ id: "0000-0000" }],
       })
       .expect("Content-Type", /json/)
       .expect(404);

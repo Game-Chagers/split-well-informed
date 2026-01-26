@@ -21,11 +21,11 @@ const expense = Router({ mergeParams: true });
 // Add expense to group
 expense.post("/expense", async (req: Request, res: Response) => {
   try {
-    const groupId = parseInt(req.params.groupId);
+    const groupId = (req as any).groupId;
     const { description, category, amount, payerId, splitType, splits } =
       req.body;
 
-    if (!description || !amount || !payerId || !splits || splits.length == 0) {
+    if (!description || !amount || !payerId || !splits || splits.length === 0) {
       return res
         .status(400)
         .json({ error: "Missing one or more required fields" });

@@ -75,7 +75,7 @@ describe("/expense", async () => {
           userId: tu.id,
         })),
       })
-      .expect(200);
+      .expect(201);
 
     const expenses = await prisma.expense.findMany();
     expect(expenses).toHaveLength(1);
