@@ -47,6 +47,7 @@ export const verify_group = async (
       if (
         (await prisma.group.findUnique({ where: { id: groupId } })) === null
       ) {
+        console.error(`Group with ID ${groupId} not found`);
         return res
           .status(404)
           .json({ error: `Group with ID ${groupId} not found` });
@@ -54,6 +55,7 @@ export const verify_group = async (
       return res.status(400).json({ error: "User doesn't belong to group" });
     }
   } catch (error) {
+    console.error(`Bad userId or groupId format`);
     res.status(400).json({ error: "Bad userId or groupId format" });
   }
   (req as any).groupId = groupId;
@@ -73,15 +75,18 @@ export const verify_expense = async (
     where: { id: expenseId },
   });
   if (!expense) {
+    console.error(`Expense with id ${expenseId} not found`);
     return res
       .status(404)
       .json({ error: `Expense with id ${expenseId} not found` });
   } else if (expense.groupId != groupId) {
+    console.error(
+      `Expense id ${expenseId} does not belong to group id ${groupId} `,
+    );
     return res.status(400).json({
       error: `Expense id ${expenseId} does not belong to group id ${groupId} `,
     });
   }
-
   (req as any).expenseId = expenseId;
   next();
 };

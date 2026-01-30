@@ -84,7 +84,7 @@ group.post("/", async (req: Request, res: Response) => {
 
     res.status(201).json(newGroup);
   } catch (error) {
-    console.error(error);
+    // console.error(error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2025")
         return res

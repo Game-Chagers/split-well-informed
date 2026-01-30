@@ -61,7 +61,7 @@ model Expense {
   id                String          @id @default(uuid())
   description       String
   category          String?         // Optional
-  amount            Float           // Total expense
+  amount            Decimal         @db.Decimal(10,4)  // Total expense
   currency          String          @default("USD")
   date              DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -79,16 +79,17 @@ model ExpenseSplit {
   id                String          @id @default(uuid())
   expenseId         String
   userId            String          // Person who "consumed" this part of expense
-  amount            Float           // How much this person owes
+  amount            Decimal         @db.Decimal(10,4)  // How much this person owes
   expense           Expense         @relation(fields: [expenseId], references: [id], onDelete: Cascade)
   user              User            @relation(fields: [userId], references: [id])
+  @@unique([userId, expenseId])     // Prevents adding same user twice
   @@index([expenseId])
   @@index([userId])
 }
 
 model Payment {
   id                String          @id @default(uuid())
-  amount            Float
+  amount            Decimal         @db.Decimal(10,4) 
   date              DateTime        @default(now())
   settled           Boolean         @default(false)   // Has the split been settled?
   groupId           String

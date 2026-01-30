@@ -31,7 +31,7 @@ user.post("/", async (req: Request, res: Response) => {
     const { password: _, ...userWithoutPassword } = newUser;
     res.status(201).json(userWithoutPassword);
   } catch (error) {
-    console.error(error);
+    // console.error(error);
     res.status(500).json({ error: (error as Error).message });
   }
 });
