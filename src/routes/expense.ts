@@ -37,7 +37,6 @@ const validate_splits = async (
           !req.body.splits.find((cur: any) => cur.userId === prev.userId),
       ) ?? [],
     );
-    console.log(splits);
     const amount = req.body.amount ?? Number(exp?.amount);
 
     if (!amount) {
@@ -66,7 +65,6 @@ const validate_splits = async (
       0,
     );
     if (totalAssigned !== amount) {
-      console.log(splits);
       console.error(
         `400 Split total ${totalAssigned} not equal to total expense cost ${amount}`,
       );
@@ -224,4 +222,47 @@ expense.get("/expense", async (req: Request, res: Response) => {
   }
 });
 
+expense.get("/expense/payment", async (req: Request, res: Response) => {
+  try {
+    const groupId = (req as any).groupId;
+    const expenses = await prisma.expense.findMany({
+      where: { groupId: groupId },
+      include: { splits: true },
+    });
+    const edges: Map<[UUID, UUID], any> = new Map([]);
+    for (const { payerId, splits } of expenses) {
+      for (const split of splits) {
+        if (payerId === split.userId) continue;
+        const index = [payerId, split.userId].sort() as [UUID, UUID];
+        if (!edges.has(index)) {
+          edges.set(index, {
+            amount: split.amount,
+            groupId: groupId,
+            settled: false,
+            senderId: split.userId,
+            receiverId: payerId,
+          });
+        } else {
+          const payment = edges.get(index);
+          if (payment.receiverId !== payerId) {
+            if (payment.amount.lt(split.amount)) {
+              payment.amount = split.amount.minus(payment.amount);
+              payment.senderId = payment.receiverId;
+              payment.receiverId = payerId;
+            } else payment.amount = payment.amount.minus(split.amount);
+          } else payment.amount = payment.amount.plus(split.amount);
+          edges.set(index, payment);
+        }
+      }
+    }
+    console.log(Array.from(edges.values()));
+    const payments = await prisma.payment.createManyAndReturn({
+      data: Array.from(edges.values()),
+    });
+    res.status(200).json(payments);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error as Error });
+  }
+});
 export default expense;
