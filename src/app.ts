@@ -6,6 +6,8 @@ import prisma from "./db.js";
 import expense from "./routes/expense.js";
 import group from "./routes/group.js";
 import { authenticate, verify_group } from "./routes/middleware/auth.js";
+import { err } from "./routes/middleware/error.js";
+import payment from "./routes/payment.js";
 import user from "./routes/users.js";
 
 const app = express();
@@ -14,7 +16,9 @@ app.use(express.json());
 app.use(cors());
 app.use("/user", user);
 app.use("/group", authenticate, group);
-app.use("/group/:groupId", authenticate, verify_group, expense);
+app.use("/group/:groupId/expense", authenticate, verify_group, expense);
+app.use("/group/:groupId/payment", authenticate, verify_group, payment);
+app.use(err);
 
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;

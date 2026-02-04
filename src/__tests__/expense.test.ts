@@ -1,42 +1,13 @@
-import { Expense, Prisma, User } from "@prisma/client";
-import jwt from "jsonwebtoken";
+import { Prisma } from "@prisma/client";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import app from "../app.js";
 import prisma from "../db.js";
 import clear_columns from "./clear.js";
+import { create_group } from "./setup.js";
 
 // call create group and ensure a
 // Group is created along with a group member and connects a user
-
-async function create_env(user_cnt: number) {
-  const test_users: User[] = [];
-  for (let i = 1; i <= user_cnt; i++) {
-    const tu = await prisma.user.create({
-      data: {
-        name: `expense_test_user${i}`,
-        email: `expense_test_user${i}@email.com`,
-        isGuest: false,
-      },
-    });
-    test_users.push(tu);
-  }
-  const token = jwt.sign(
-    { userId: test_users[0].id },
-    process.env.JWT_SECRET || "needs a fallback secret ig",
-  );
-  const test_group = await prisma.group.create({
-    data: {
-      name: "expense-test",
-      members: {
-        create: test_users.map((tu) => ({
-          userId: tu.id,
-        })),
-      },
-    },
-  });
-  return { test_users, token, test_group };
-}
 
 describe("/expense", async () => {
   it.each([
@@ -66,7 +37,7 @@ describe("/expense", async () => {
     "/expense.post $name",
     async ({ user_cnt, amount, test_splits, status }) => {
       await clear_columns(prisma);
-      const { test_users, token, test_group } = await create_env(user_cnt);
+      const { test_users, token, test_group } = await create_group(user_cnt);
       const splits = test_splits.map(
         (s: { userId: number; amount: number }) => ({
           userId: test_users[s.userId].id,
@@ -206,7 +177,7 @@ describe("/expense", async () => {
       status,
     }) => {
       await clear_columns(prisma);
-      const { test_users, token, test_group } = await create_env(user_cnt);
+      const { test_users, token, test_group } = await create_group(user_cnt);
       const init = init_splits.map((s) => ({
         userId: test_users[s.userId].id,
         amount: s.amount,
@@ -272,7 +243,7 @@ describe("/expense", async () => {
   );
   it("/expense.delete", async () => {
     await clear_columns(prisma);
-    const { test_users, token, test_group } = await create_env(1);
+    const { test_users, token, test_group } = await create_group(1);
     const test_user = test_users[0];
     const test_expense = await prisma.expense.create({
       data: {
@@ -293,86 +264,4 @@ describe("/expense", async () => {
     expect(await prisma.expense.findMany()).toHaveLength(0);
     expect(await prisma.expenseSplit.findMany()).toHaveLength(0);
   });
-  it.each([
-    {
-      name: "basic test",
-      user_cnt: 3,
-      expenses: [
-        {
-          amount: 3,
-          splits: [
-            { userId: 0, amount: 1 },
-            { userId: 1, amount: 1 },
-            { userId: 2, amount: 1 },
-          ],
-        },
-      ],
-      payment_expected: [
-        {
-          amount: 1,
-          senderId: 1,
-          receiverId: 0,
-        },
-        {
-          amount: 1,
-          senderId: 2,
-          receiverId: 0,
-        },
-      ],
-    },
-  ])(
-    "/expense/payment $name",
-    async ({ user_cnt, expenses, payment_expected }) => {
-      await clear_columns(prisma);
-      const { test_users, token, test_group } = await create_env(user_cnt);
-
-      await Promise.all(
-        expenses.map(
-          (exp): Promise<Expense> =>
-            prisma.expense.create({
-              data: {
-                description: "For testing of /expense",
-                category: "test",
-                amount: exp.amount,
-                payerId: test_users[0].id,
-                groupId: test_group.id,
-                splits: {
-                  create: exp.splits.map((s: any) => ({
-                    userId: test_users[s.userId].id,
-                    amount: s.amount,
-                  })) as any,
-                },
-              },
-            }),
-        ),
-      );
-      const pay_expect_JSON = payment_expected.map((p: any) =>
-        expect.objectContaining({
-          ...p,
-          amount: String(Prisma.Decimal(p.amount)),
-          senderId: test_users[p.senderId].id,
-          receiverId: test_users[p.receiverId].id,
-        }),
-      );
-      await request(app)
-        .get(`/group/${test_group.id}/expense/payment`)
-        .set("Authorization", `Bearer ${token}`)
-        .send()
-        .expect(200)
-        .then((res) => {
-          expect(res.body).toEqual(expect.arrayContaining(pay_expect_JSON));
-        });
-
-      const pay_expect = payment_expected.map((p: any) =>
-        expect.objectContaining({
-          ...p,
-          amount: Prisma.Decimal(p.amount),
-          senderId: test_users[p.senderId].id,
-          receiverId: test_users[p.receiverId].id,
-        }),
-      );
-      const payments = await prisma.payment.findMany();
-      expect(payments).toEqual(expect.arrayContaining(pay_expect));
-    },
-  );
 });

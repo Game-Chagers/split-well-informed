@@ -7,24 +7,19 @@ const group = Router({ mergeParams: true });
 
 //??
 async function findUserByEmailOrID(id?: string, email?: string) {
-  try {
-    let user = null;
-    if (id) {
-      user = await prisma.user.findUnique({ where: { id: id } });
-      if (!user) {
-        return null;
-      }
-    } else if (email) {
-      user = await prisma.user.findUnique({ where: { email: email } });
-      if (!user) {
-        return null;
-      }
+  let user = null;
+  if (id) {
+    user = await prisma.user.findUnique({ where: { id: id } });
+    if (!user) {
+      return null;
     }
-    return user;
-  } catch (error) {
-    console.error(error);
-    throw error;
+  } else if (email) {
+    user = await prisma.user.findUnique({ where: { email: email } });
+    if (!user) {
+      return null;
+    }
   }
+  return user;
 }
 // Create new group
 group.post("/", async (req: Request, res: Response) => {
@@ -97,35 +92,25 @@ group.post("/", async (req: Request, res: Response) => {
 
 // Get all groups  // change to get all groups for user?
 group.get("/", async (req: Request, res: Response) => {
-  try {
-    const groups = await prisma.group.findMany({ include: { members: true } });
-    res.json(groups);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: (error as Error).message });
-  }
+  const groups = await prisma.group.findMany({ include: { members: true } });
+  res.json(groups);
 });
 
 // Get specific group
 group.get("/:groupId", verify_group, async (req: Request, res: Response) => {
-  try {
-    const groupId = (req as any).groupId;
+  const groupId = (req as any).groupId;
 
-    const group = await prisma.group.findUnique({
-      where: {
-        id: groupId,
-      },
-      include: {
-        members: true,
-        expenses: true,
-        payments: true,
-      },
-    });
-    res.json(group);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: (error as Error).message });
-  }
+  const group = await prisma.group.findUnique({
+    where: {
+      id: groupId,
+    },
+    include: {
+      members: true,
+      expenses: true,
+      payments: true,
+    },
+  });
+  res.json(group);
 });
 
 // Add member to group
@@ -133,48 +118,43 @@ group.post(
   "/:groupId/member",
   verify_group,
   async (req: Request, res: Response) => {
-    try {
-      const groupId = req.params.groupId;
-      const { userId, email } = req.body;
+    const groupId = req.params.groupId;
+    const { userId, email } = req.body;
 
-      const user = await findUserByEmailOrID(userId, email);
-      if (!user) {
-        return res
-          .status(400)
-          .json({ error: "User not found, must provide either ID or email" });
-      }
-
-      const existingMember = await prisma.groupMember.findUnique({
-        where: {
-          userId_groupId: {
-            userId: user.id,
-            groupId: groupId,
-          },
-        },
-      });
-
-      if (existingMember) {
-        return res
-          .status(400)
-          .json({ error: "User is already a member of this group" });
-      }
-
-      const updatedGroup = await prisma.group.update({
-        where: { id: groupId },
-        data: {
-          members: {
-            create: {
-              userId: user.id,
-            },
-          },
-        },
-      });
-
-      res.json(updatedGroup);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: error as Error });
+    const user = await findUserByEmailOrID(userId, email);
+    if (!user) {
+      return res
+        .status(400)
+        .json({ error: "User not found, must provide either ID or email" });
     }
+
+    const existingMember = await prisma.groupMember.findUnique({
+      where: {
+        userId_groupId: {
+          userId: user.id,
+          groupId: groupId,
+        },
+      },
+    });
+
+    if (existingMember) {
+      return res
+        .status(400)
+        .json({ error: "User is already a member of this group" });
+    }
+
+    const updatedGroup = await prisma.group.update({
+      where: { id: groupId },
+      data: {
+        members: {
+          create: {
+            userId: user.id,
+          },
+        },
+      },
+    });
+
+    res.json(updatedGroup);
   },
 );
 

@@ -18,12 +18,11 @@ export const authenticate = (
   try {
     const secret = process.env.JWT_SECRET || "your_fallback_secret";
     const decoded = jwt.verify(token, secret) as { userId: string };
-
     (req as any).userId = decoded.userId;
-    next();
   } catch (error) {
     res.status(403).json({ error: "Invalid or expired token." });
   }
+  next();
 };
 
 export const verify_group = async (
@@ -33,30 +32,22 @@ export const verify_group = async (
 ) => {
   const userId = (req as any).userId;
   const groupId = req.params.groupId as UUID;
-  try {
-    const member = await prisma.groupMember.findUnique({
-      where: {
-        userId_groupId: {
-          userId: userId,
-          groupId: groupId,
-        },
+  const member = await prisma.groupMember.findUnique({
+    where: {
+      userId_groupId: {
+        userId: userId,
+        groupId: groupId,
       },
-    });
-
-    if (member === null) {
-      if (
-        (await prisma.group.findUnique({ where: { id: groupId } })) === null
-      ) {
-        console.error(`Group with ID ${groupId} not found`);
-        return res
-          .status(404)
-          .json({ error: `Group with ID ${groupId} not found` });
-      }
-      return res.status(400).json({ error: "User doesn't belong to group" });
+    },
+  });
+  if (member === null) {
+    if ((await prisma.group.findUnique({ where: { id: groupId } })) === null) {
+      console.error(`Group with ID ${groupId} not found`);
+      return res
+        .status(404)
+        .json({ error: `Group with ID ${groupId} not found` });
     }
-  } catch (error) {
-    console.error(`Bad userId or groupId format`);
-    res.status(400).json({ error: "Bad userId or groupId format" });
+    return res.status(400).json({ error: "User doesn't belong to group" });
   }
   (req as any).groupId = groupId;
   next();
@@ -67,7 +58,6 @@ export const verify_expense = async (
   res: Response,
   next: NextFunction,
 ) => {
-  const userId = (req as any).userId;
   const groupId = (req as any).groupId;
   const expenseId = req.params.expenseId as UUID;
 

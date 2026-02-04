@@ -12,6 +12,19 @@ describe("login process", async () => {
   beforeEach(async () => {
     await clear_columns(prisma);
   });
+  it("tests general error", async () => {
+    await prisma.user.create({
+      data: {
+        name: "test",
+        email: "test@email.com",
+        isGuest: true,
+      },
+    });
+    request(app)
+      .post("/user")
+      .send({ name: "test", email: "test@email.com" })
+      .expect(500);
+  });
   it("creates user and logs in as user and update account to test auth", async () => {
     await request(app)
       .post("/user")

@@ -23,113 +23,92 @@ const validate_splits = async (
   res: Response,
   next: NextFunction,
 ) => {
-  try {
-    const groupId = (req as any).groupId;
-    const expenseId = (req as any).expenseId;
-    const exp = await prisma.expense.findUnique({
-      where: { id: expenseId ?? ("0" as UUID) },
-      select: { amount: true, splits: true },
-    });
-    // combines splits in request with the splits in db that are not include
-    const splits = req.body.splits.concat(
-      exp?.splits?.filter(
-        (prev) =>
-          !req.body.splits.find((cur: any) => cur.userId === prev.userId),
-      ) ?? [],
-    );
-    const amount = req.body.amount ?? Number(exp?.amount);
+  const groupId = (req as any).groupId;
+  const expenseId = (req as any).expenseId;
+  const exp = await prisma.expense.findUnique({
+    where: { id: expenseId ?? ("0" as UUID) },
+    select: { amount: true, splits: true },
+  });
+  // combines splits in request with the splits in db that are not include
+  const splits = req.body.splits.concat(
+    exp?.splits?.filter(
+      (prev) => !req.body.splits.find((cur: any) => cur.userId === prev.userId),
+    ) ?? [],
+  );
+  const amount = req.body.amount ?? Number(exp?.amount);
 
-    if (!amount) {
-      console.error("400 Amount of money not specified");
-      return res.status(400).json({ error: "Amount of money not specified" });
-    }
-    //checks for users specified in split
-    const usersInSplit = splits.map((split: any) => split.userId);
-    const membersInGroup = await prisma.groupMember.findMany({
-      where: {
-        groupId: groupId,
-        userId: { in: usersInSplit },
-      },
-      select: { id: true },
-    });
-    if (usersInSplit.length !== membersInGroup.length) {
-      console.error(`400 All participants of split must be in the group.\n
+  if (!amount) {
+    console.error("400 Amount of money not specified");
+    return res.status(400).json({ error: "Amount of money not specified" });
+  }
+  //checks for users specified in split
+  const usersInSplit = splits.map((split: any) => split.userId);
+  const membersInGroup = await prisma.groupMember.findMany({
+    where: {
+      groupId: groupId,
+      userId: { in: usersInSplit },
+    },
+    select: { id: true },
+  });
+  if (usersInSplit.length !== membersInGroup.length) {
+    console.error(`400 All participants of split must be in the group.\n
         There are ${usersInSplit.length - membersInGroup.length} members 
         in your request that are not in the group`);
-      return res
-        .status(400)
-        .json({ error: "All participants of split must be in the group" });
-    }
-    const totalAssigned = splits.reduce(
-      (sum: number, split: any) => sum + Number(split.amount),
-      0,
-    );
-    if (totalAssigned !== amount) {
-      console.error(
-        `400 Split total ${totalAssigned} not equal to total expense cost ${amount}`,
-      );
-      return res.status(400).json({
-        error: `Split total ${totalAssigned} not equal to total expense cost ${amount}`,
-      });
-    }
-    next();
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error as Error });
+    return res
+      .status(400)
+      .json({ error: "All participants of split must be in the group" });
   }
+  const totalAssigned = splits.reduce(
+    (sum: number, split: any) => sum + Number(split.amount),
+    0,
+  );
+  if (totalAssigned !== amount) {
+    console.error(
+      `400 Split total ${totalAssigned} not equal to total expense cost ${amount}`,
+    );
+    return res.status(400).json({
+      error: `Split total ${totalAssigned} not equal to total expense cost ${amount}`,
+    });
+  }
+  next();
 };
 
 // Add expense to group
-expense.post(
-  "/expense",
-  validate_splits,
-  async (req: Request, res: Response) => {
-    try {
-      const groupId = (req as any).groupId;
-      const { description, category, amount, payerId, splits } = req.body;
-      if (
-        !description ||
-        !amount ||
-        !payerId ||
-        !splits ||
-        splits.length === 0
-      ) {
-        return res
-          .status(400)
-          .json({ error: "Missing one or more required fields" });
-      }
+expense.post("/", validate_splits, async (req: Request, res: Response) => {
+  const groupId = (req as any).groupId;
+  const { description, category, amount, payerId, splits } = req.body;
+  if (!description || !amount || !payerId || !splits || splits.length === 0) {
+    return res
+      .status(400)
+      .json({ error: "Missing one or more required fields" });
+  }
 
-      // Add expense
-      const newExpense = await prisma.expense.create({
-        data: {
-          description: description,
-          category: category,
-          amount: amount,
-          payerId: payerId,
-          groupId: groupId,
-          splits: {
-            create: splits,
-          },
-        },
-        include: {
-          payer: true,
-          splits: { include: { user: true } },
-        },
-      });
+  // Add expense
+  const newExpense = await prisma.expense.create({
+    data: {
+      description: description,
+      category: category,
+      amount: amount,
+      payerId: payerId,
+      groupId: groupId,
+      splits: {
+        create: splits,
+      },
+    },
+    include: {
+      payer: true,
+      splits: { include: { user: true } },
+    },
+  });
 
-      res.status(201).json(newExpense);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: error as Error });
-    }
-  },
-);
+  res.status(201).json(newExpense);
+});
 
 expense.patch(
-  "/expense/:expenseId",
+  "/:expenseId",
   verify_expense,
   validate_splits,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     const expenseId = (req as any).expenseId;
     const { description, category, amount, payerId, splits } = req.body;
     if (splits) {
@@ -177,92 +156,34 @@ expense.patch(
         splits: true,
       },
     });
-    try {
-      const updatedExpense = await promisedUpdatedExpense;
-      res.status(201).json(updatedExpense);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: error as Error });
-    }
+    const updatedExpense = await promisedUpdatedExpense;
+    res.status(201).json(updatedExpense);
   },
 );
 
 // Delete expense
 expense.delete(
-  "/expense/:expenseId",
+  "/:expenseId",
   verify_expense,
   async (req: Request, res: Response) => {
-    try {
-      const expenseId = (req as any).expenseId;
+    const expenseId = (req as any).expenseId;
 
-      const deletedExpense = await prisma.expense.delete({
-        where: { id: expenseId },
-      });
-      res.status(201).json(deletedExpense);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: error as Error });
-    }
+    const deletedExpense = await prisma.expense.delete({
+      where: { id: expenseId },
+    });
+    res.status(201).json(deletedExpense);
   },
 );
 
 // Get all expenses from group
-expense.get("/expense", async (req: Request, res: Response) => {
-  try {
-    const groupId = (req as any).groupId;
-    const group = await prisma.group.findUnique({
-      where: { id: groupId },
-      include: { expenses: true },
-    });
+expense.get("/", async (req: Request, res: Response) => {
+  const groupId = (req as any).groupId;
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+    include: { expenses: true },
+  });
 
-    res.json(group?.expenses);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error as Error });
-  }
+  res.json(group?.expenses);
 });
 
-expense.get("/expense/payment", async (req: Request, res: Response) => {
-  try {
-    const groupId = (req as any).groupId;
-    const expenses = await prisma.expense.findMany({
-      where: { groupId: groupId },
-      include: { splits: true },
-    });
-    const edges: Map<[UUID, UUID], any> = new Map([]);
-    for (const { payerId, splits } of expenses) {
-      for (const split of splits) {
-        if (payerId === split.userId) continue;
-        const index = [payerId, split.userId].sort() as [UUID, UUID];
-        if (!edges.has(index)) {
-          edges.set(index, {
-            amount: split.amount,
-            groupId: groupId,
-            settled: false,
-            senderId: split.userId,
-            receiverId: payerId,
-          });
-        } else {
-          const payment = edges.get(index);
-          if (payment.receiverId !== payerId) {
-            if (payment.amount.lt(split.amount)) {
-              payment.amount = split.amount.minus(payment.amount);
-              payment.senderId = payment.receiverId;
-              payment.receiverId = payerId;
-            } else payment.amount = payment.amount.minus(split.amount);
-          } else payment.amount = payment.amount.plus(split.amount);
-          edges.set(index, payment);
-        }
-      }
-    }
-    console.log(Array.from(edges.values()));
-    const payments = await prisma.payment.createManyAndReturn({
-      data: Array.from(edges.values()),
-    });
-    res.status(200).json(payments);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error as Error });
-  }
-});
 export default expense;
