@@ -38,6 +38,7 @@ model User {
 model Group {
   id                String          @id @default(uuid())
   name              String
+  simplifyPayments  Boolean         @default(false)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   members           GroupMember[]
