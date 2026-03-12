@@ -11,12 +11,16 @@ const verify_payment = async (
   next: NextFunction,
 ) => {
   const paymentId = req.params.paymentId;
+  const groupId = req.params.groupId;
+
   const payment = await prisma.payment.findUnique({
-    where: { id: paymentId },
+    where: { id: paymentId, groupId: groupId },
   });
+
   if (!payment) {
     return res.status(404).json("Payment not found");
   }
+  
   (req as any).paymentId = paymentId;
   next();
 };

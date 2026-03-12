@@ -241,7 +241,7 @@ describe("/payment", async () => {
           return res;
         });
       //settling
-      const responses = Promise.all(
+      const responses = await Promise.all(
         made_payments.body
           .filter((p: any) =>
             settle.find(
@@ -346,7 +346,7 @@ describe("/payment", async () => {
       const { test_users, token, test_group } = await create_group(user_cnt);
       await prisma.group.update({
         where: { id: test_group.id },
-        data: { simplifyPayments: true }
+        data: { simplifyPayments: true },
       });
       await create_payments(test_users, test_group.id, expenses);
 
@@ -368,19 +368,19 @@ describe("/payment", async () => {
           expect(res.body).toEqual(expect.arrayContaining(pay_expect_JSON));
           expect(res.body).toHaveLength(payment_expected_simplified.length);
         });
-      
-      const pay_expect = payment_expected_simplified.map((p: any) => 
+
+      const pay_expect = payment_expected_simplified.map((p: any) =>
         expect.objectContaining({
           ...p,
           amount: Prisma.Decimal(p.amount),
-          senderId: test_users[p.senderId].id, 
+          senderId: test_users[p.senderId].id,
           receiverId: test_users[p.receiverId].id,
           settled: false,
         }),
       );
 
       const payments = await prisma.payment.findMany({
-        where: { groupId: test_group.id, settled: false }
+        where: { groupId: test_group.id, settled: false },
       });
 
       expect(payments).toEqual(expect.arrayContaining(pay_expect));
