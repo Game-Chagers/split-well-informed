@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response, Router } from "express";
 import prisma from "../db.js";
 import { Decimal } from "@prisma/client/runtime/library";
+import { authenticate } from "./middleware/auth.js";
 
 const payment = Router({ mergeParams: true });
 
@@ -14,7 +15,7 @@ const verify_payment = async (
     where: { id: paymentId },
   });
   if (!payment) {
-    res.status(404).json("Payment not found");
+    return res.status(404).json("Payment not found");
   }
   (req as any).paymentId = paymentId;
   next();
@@ -140,7 +141,7 @@ async function simplifyPayments(groupId: string) {
     sender.amount = sender.amount.plus(settlementAmount);
     receiver.amount = receiver.amount.minus(settlementAmount);
 
-    balanceArray = balanceArray.filter(b => !b.amount.isZero());
+    balanceArray = balanceArray.filter((b) => !b.amount.isZero());
   }
 
   await prisma.payment.deleteMany({
@@ -164,14 +165,14 @@ async function simplifyPayments(groupId: string) {
 }
 
 // Calculate and get payments
-payment.get("/", async (req: Request, res: Response) => {
+payment.get("/", authenticate, async (req: Request, res: Response) => {
   const groupId = (req as any).groupId;
   const group = await prisma.group.findUnique({
     where: { id: groupId },
     select: { simplifyPayments: true },
   });
   if (!group) {
-    return res.json(404).json({ error: "Group not found" });
+    return res.status(404).json({ error: "Group not found" });
   }
   const simplified = group.simplifyPayments;
 
@@ -185,13 +186,18 @@ payment.get("/", async (req: Request, res: Response) => {
 
 payment.post(
   "/settle/:paymentId",
+  authenticate,
   verify_payment,
   async (req: Request, res: Response) => {
-    await prisma.payment.update({
-      where: { id: (req as any).paymentId },
-      data: { settled: true },
-    });
-    res.status(201);
+    try {
+      const updatedPayment = await prisma.payment.update({
+        where: { id: (req as any).paymentId },
+        data: { settled: true },
+      });
+      res.status(200).json(updatedPayment);
+    } catch (error) {
+      res.status(500).json({ error: (error as Error).message });
+    }
   },
 );
 

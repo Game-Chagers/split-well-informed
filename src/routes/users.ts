@@ -9,10 +9,10 @@ const user = Router({ mergeParams: true });
 user.post("/", async (req: Request, res: Response) => {
   const { email, name, password } = req.body;
   if (!email || !name || !password) {
-    res.status(400).json({ error: "Bad format for user" });
+    return res.status(400).json({ error: "Bad format for user" });
   }
   if (!email.includes("@")) {
-    res.status(400).json({ error: "Invalid email" });
+    return res.status(400).json({ error: "Invalid email" });
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -40,7 +40,15 @@ user.get("/", async (req: Request, res: Response) => {
     }
     const user = await prisma.user.findUnique({
       where: { email: email as string },
-      include: { groups: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isGuest: true,
+        createdAt: true,
+        updatedAt: true,
+        groups: true,
+       },
     });
     if (!user) {
       return res
@@ -53,7 +61,17 @@ user.get("/", async (req: Request, res: Response) => {
 
   // Get all users
   else {
-    const users = await prisma.user.findMany();
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isGuest: true,
+        createdAt: true,
+        updatedAt: true,
+        groups: true,
+      }
+    });
     res.json(users);
   }
 });
@@ -66,10 +84,18 @@ user.get("/:userId", async (req: Request, res: Response) => {
   if (userId) {
     user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { groups: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isGuest: true,
+        createdAt: true,
+        updatedAt: true,
+        groups: true,
+      },
     });
   } else {
-    res.status(400).json({ error: "Must provide id" });
+    return res.status(400).json({ error: "Must provide id" });
   }
 
   if (!user) {
@@ -90,9 +116,18 @@ user.patch("/", authenticate, async (req: Request, res: Response) => {
       email: email,
       name: name,
     },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      isGuest: true,
+      createdAt: true,
+      updatedAt: true,
+      groups: true,
+    }
   });
 
-  res.status(201).json(updatedUser);
+  res.status(200).json(updatedUser);
 });
 
 // Delete user
@@ -108,6 +143,11 @@ user.delete("/", authenticate, async (req: Request, res: Response) => {
 
   const deletedUser = await prisma.user.delete({
     where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+    },
   });
   res.json(deletedUser);
 });
