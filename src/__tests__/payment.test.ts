@@ -157,6 +157,7 @@ describe("/payment", async () => {
       expect(payments).toEqual(expect.arrayContaining(pay_expect));
     },
   );
+
   it.each([
     {
       name: "basic test",
@@ -262,6 +263,128 @@ describe("/payment", async () => {
       );
       const payments = await prisma.payment.findMany();
       expect(payments).toEqual(expect.arrayContaining(pay_expect));
+    },
+  );
+
+  it.each([
+    {
+      name: "basic simplification - 1 payment split 3 ways",
+      user_cnt: 3,
+      expenses: [
+        {
+          amount: 15,
+          payerIndex: 0,
+          splits: [
+            { userIndex: 0, amount: 5 },
+            { userIndex: 1, amount: 5 },
+            { userIndex: 2, amount: 5 },
+          ],
+        },
+      ],
+      payment_expected_simplified: [
+        {
+          amount: 5,
+          senderId: 1,
+          receiverId: 0,
+        },
+        {
+          amount: 5,
+          senderId: 2,
+          receiverId: 0,
+        },
+      ],
+    },
+    {
+      name: "three-way debt - simplifies from 3 to 2 payments",
+      user_cnt: 3,
+      expenses: [
+        {
+          amount: 10,
+          payerIndex: 0, // User 0 pays $10
+          splits: [
+            { userIndex: 0, amount: 0 },
+            { userIndex: 1, amount: 10 }, // User 1 owes $10
+            { userIndex: 2, amount: 0 },
+          ],
+        },
+        {
+          amount: 8,
+          payerIndex: 1, // User 1 pays $8
+          splits: [
+            { userIndex: 0, amount: 0 },
+            { userIndex: 1, amount: 0 },
+            { userIndex: 2, amount: 8 }, // User 2 owes $8
+          ],
+        },
+        {
+          amount: 5,
+          payerIndex: 2, // User 2 pays $5
+          splits: [
+            { userIndex: 0, amount: 5 }, // User 0 owes $5
+            { userIndex: 1, amount: 0 },
+            { userIndex: 2, amount: 0 },
+          ],
+        },
+      ],
+      payment_expected_simplified: [
+        {
+          amount: 3,
+          senderId: 2,
+          receiverId: 0,
+        },
+        {
+          amount: 2,
+          senderId: 1,
+          receiverId: 0,
+        },
+      ],
+    },
+  ])(
+    "simplifying payments $name",
+    async ({ user_cnt, expenses, payment_expected_simplified }) => {
+      await clear_columns(prisma);
+      const { test_users, token, test_group } = await create_group(user_cnt);
+      await prisma.group.update({
+        where: { id: test_group.id },
+        data: { simplifyPayments: true }
+      });
+      await create_payments(test_users, test_group.id, expenses);
+
+      const pay_expect_JSON = payment_expected_simplified.map((p: any) =>
+        expect.objectContaining({
+          ...p,
+          amount: String(Prisma.Decimal(p.amount)),
+          senderId: test_users[p.senderId].id,
+          receiverId: test_users[p.receiverId].id,
+        }),
+      );
+
+      await request(app)
+        .get(`/group/${test_group.id}/payment`)
+        .set("Authorization", `Bearer ${token}`)
+        .send()
+        .expect(200)
+        .then((res) => {
+          expect(res.body).toEqual(expect.arrayContaining(pay_expect_JSON));
+          expect(res.body).toHaveLength(payment_expected_simplified.length);
+        });
+      
+      const pay_expect = payment_expected_simplified.map((p: any) => 
+        expect.objectContaining({
+          ...p,
+          amount: Prisma.Decimal(p.amount),
+          senderId: test_users[p.senderId].id, 
+          receiverId: test_users[p.receiverId].id,
+          settled: false,
+        }),
+      );
+
+      const payments = await prisma.payment.findMany({
+        where: { groupId: test_group.id, settled: false }
+      });
+
+      expect(payments).toEqual(expect.arrayContaining(pay_expect));
+      expect(payments).toHaveLength(payment_expected_simplified.length);
     },
   );
 });
