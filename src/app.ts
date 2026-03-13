@@ -1,12 +1,11 @@
 import bcrypt from "bcryptjs";
 import cors from "cors"; // Adds special HTTP headers to tell browser to allow requests from different domains (our react native expo code)
-import express from "express"; // Allows creating paths for API
+import express, { NextFunction, Request, Response } from "express"; // Allows creating paths for API
 import jwt from "jsonwebtoken";
 import prisma from "./db.js";
 import expense from "./routes/expense.js";
 import group from "./routes/group.js";
 import { authenticate, verify_group } from "./routes/middleware/auth.js";
-import { err } from "./routes/middleware/error.js";
 import payment from "./routes/payment.js";
 import user from "./routes/users.js";
 
@@ -18,7 +17,6 @@ app.use("/user", user);
 app.use("/group", authenticate, group);
 app.use("/group/:groupId/expense", authenticate, verify_group, expense);
 app.use("/group/:groupId/payment", authenticate, verify_group, payment);
-app.use(err);
 
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
@@ -38,6 +36,19 @@ app.post("/login", async (req, res) => {
   res.json({
     token,
     user: { id: user.id, email: user.email, name: user.name },
+  });
+});
+
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  const status = err.statusCode || 500;
+  const message =
+    err.message ||
+    `Internal Server Error. Code: ${err.code}` ||
+    "Internal Server Error";
+
+  res.status(status).json({
+    status: "error",
+    message,
   });
 });
 

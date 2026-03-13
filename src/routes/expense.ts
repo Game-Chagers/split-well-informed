@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { NextFunction, Request, Response, Router } from "express";
 import { UUID } from "node:crypto";
 import prisma from "../db.js";
@@ -59,12 +60,13 @@ const validate_splits = async (
       .json({ error: "All participants of split must be in the group" });
   }
   const totalAssigned = splits.reduce(
-    (sum: number, split: any) => sum + Number(split.amount),
+    (sum: number, split: any) =>
+      split.amount < 0 ? -Infinity : sum + Number(split.amount),
     0,
   );
   if (totalAssigned !== amount) {
     console.error(
-      `400 Split total ${totalAssigned} not equal to total expense cost ${amount}`,
+      `Split total ${totalAssigned} not equal to total expense cost ${amount}, or invalid split given (<=0)`,
     );
     return res.status(400).json({
       error: `Split total ${totalAssigned} not equal to total expense cost ${amount}`,
@@ -92,18 +94,28 @@ expense.post("/", validate_splits, async (req: Request, res: Response) => {
       payerId: payerId,
       groupId: groupId,
       splits: {
-        create: splits,
+        create: splits.filter(
+          (s: any) => s.userId !== payerId && s.amount !== 0,
+        ),
       },
     },
     include: {
       payer: true,
-      splits: { include: { user: true } },
+      splits: true,
     },
   });
-
+  const payer_split = splits.find((s: any) => s.userId === payerId);
+  if (payer_split) {
+    newExpense.splits.push({
+      userId: payer_split.userId,
+      amount: Prisma.Decimal(payer_split.amount),
+      expenseId: newExpense.id,
+      id: "",
+    });
+  }
   res.status(201).json(newExpense);
 });
-
+//going to remov redundant splits
 expense.patch(
   "/:expenseId",
   verify_expense,
@@ -133,17 +145,12 @@ expense.patch(
           }),
         );
       }
-      try {
-        await Promise.all(promisedSplits);
-        await prisma.expenseSplit.deleteMany({
-          where: { expenseId: expenseId, amount: 0 },
-        });
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: error as Error });
-      }
+      await Promise.all(promisedSplits);
+      await prisma.expenseSplit.deleteMany({
+        where: { expenseId: expenseId, amount: 0 },
+      });
     }
-    const promisedUpdatedExpense = prisma.expense.update({
+    const promisedUpdatedExpense = await prisma.expense.update({
       where: { id: expenseId },
       data: {
         description,
@@ -156,7 +163,7 @@ expense.patch(
         splits: true,
       },
     });
-    const updatedExpense = await promisedUpdatedExpense;
+    const updatedExpense = promisedUpdatedExpense;
     res.status(201).json(updatedExpense);
   },
 );

@@ -101,4 +101,5 @@ model Payment {
   @@index([groupId])
   @@index([senderId])
   @@index([receiverId])
+  @@index([receiverId, senderId, settled])
 }

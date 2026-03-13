@@ -46,7 +46,7 @@
     "expo-web-browser": "~15.0.10",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "prisma": "^6.19.1",
+    "prisma": "^6.19.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -59,6 +59,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@fast-check/vitest": "^0.2.4",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",

@@ -137,7 +137,7 @@ describe("/payment", async () => {
         }),
       );
       await request(app)
-        .get(`/group/${test_group.id}/payment`)
+        .get(`/group/${test_group.id}/payment/generate`)
         .set("Authorization", `Bearer ${token}`)
         .send()
         .expect(200)
@@ -231,7 +231,7 @@ describe("/payment", async () => {
         }),
       );
       const made_payments = await request(app)
-        .get(`/group/${test_group.id}/payment`)
+        .get(`/group/${test_group.id}/payment/generate`)
         .set("Authorization", `Bearer ${token}`)
         .send()
         .expect(200)
@@ -240,7 +240,7 @@ describe("/payment", async () => {
           return res;
         });
       //settling
-      const responses = Promise.all(
+      Promise.all(
         made_payments.body
           .filter((p: any) =>
             settle.find(

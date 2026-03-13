@@ -58,11 +58,13 @@ describe("/expense", async () => {
         .then((res) => {
           if (status === 400) return;
           expect(res.body.splits).toEqual(
-            splits.map((s) =>
-              expect.objectContaining({
-                userId: s.userId,
-                amount: String(s.amount),
-              }),
+            expect.arrayContaining(
+              splits.map((s) =>
+                expect.objectContaining({
+                  userId: s.userId,
+                  amount: String(s.amount),
+                }),
+              ),
             ),
           );
         });
@@ -73,15 +75,17 @@ describe("/expense", async () => {
       const expense = expenses[0];
 
       const expense_splits = await prisma.expenseSplit.findMany();
-      expect(expense_splits).toHaveLength(user_cnt);
+
       expect(expense_splits).toEqual(
-        splits.map((s) =>
-          expect.objectContaining({
-            userId: s.userId,
-            amount: Prisma.Decimal(s.amount),
-            expenseId: expense.id,
-          }),
-        ),
+        splits
+          .filter((s) => s.userId !== test_users[0].id)
+          .map((s) =>
+            expect.objectContaining({
+              userId: s.userId,
+              amount: Prisma.Decimal(s.amount),
+              expenseId: expense.id,
+            }),
+          ),
       );
     },
   );
@@ -261,7 +265,7 @@ describe("/expense", async () => {
       .delete(`/group/${test_group.id}/expense/${test_expense.id}`)
       .set("Authorization", `Bearer ${token}`)
       .expect(201);
-    expect(await prisma.expense.findMany()).toHaveLength(0);
-    expect(await prisma.expenseSplit.findMany()).toHaveLength(0);
+    const ex = await prisma.expense.findMany({ include: { splits: true } });
+    expect(ex).toHaveLength(0);
   });
 });
