@@ -1,23 +1,15 @@
 import { Prisma } from "@prisma/client";
 import { UUID } from "node:crypto";
+
 interface edge {
   amount: Prisma.Decimal;
   flow: Prisma.Decimal;
   residual: edge;
-  rev: number;
 }
 function remaining(edge: edge) {
   return edge.amount.minus(edge.flow);
 }
-// returns false if not a valide edge,
-// The edge and residual edge have a capacity of 0 or remaining flow of 0.
-function uprev(rev: number, edge: edge): void {
-  if (rev > edge.rev) {
-    edge.amount = Prisma.Decimal.min(edge.amount, remaining(edge));
-    edge.flow = Prisma.Decimal(0);
-    edge.rev = rev;
-  }
-}
+
 function graph_push(
   graph: Map<any, Map<any, any>>,
   from: any,
@@ -28,40 +20,65 @@ function graph_push(
   from_map.set(to, edge);
   graph.set(from, from_map);
 }
+
+function graph_delete(graph: Map<any, Map<any, any>>, from: any, to: any) {
+  const from_map = graph.get(from);
+  from_map?.delete(to);
+  if (from_map?.size == 0) graph.delete(from);
+}
 function for_graph(
   graph: Map<UUID, Map<UUID, edge>>,
   func: (from: UUID, to: UUID, edge: edge) => void,
 ) {
-  for (const [from, edges] of graph.entries()) {
-    for (const [to, edge] of edges.entries()) {
+  for (const [from, edges] of graph) {
+    for (const [to, edge] of edges) {
       func(from, to, edge);
     }
   }
 }
+/*
+takes object type {to, from, amount} 
+returns same type reduce
+*/
 export default class Split {
   graph: Map<UUID, Map<UUID, edge>>;
   payments: any[];
-  constructor(
-    payments: any[],
+  split_payments: any[];
+  constructor(payments: any[]) {
+    this.graph = new Map();
+    this.payments = payments;
+    this.split_payments = [];
+  }
+  split(
     amountl: string = "amount",
     tol: string = "to",
     froml: string = "from",
   ) {
-    this.graph = this.construct_graph(payments, amountl, tol, froml);
-    let rev = 0;
-
+    this.construct_graph(amountl, tol, froml);
+    this.dfs_remove_cycles();
+    this.reset_graph();
+    this.reduce_graph();
+    this.make_payments();
+    return this.split_payments;
+  }
+  reduce_graph() {
     for_graph(this.graph, (from: UUID, to: UUID, edge: edge) => {
-      uprev(rev, edge);
       if (remaining(edge)) {
-        const mf = new MaxFlow(rev++, from, to, this.graph);
-        uprev(rev, edge);
+        const mf = new MaxFlow(from, to, this.graph);
         edge.amount = mf.maxflow;
+        edge.flow = Prisma.Decimal(0);
+        this.reset_graph();
       }
     });
-    this.payments = [];
+  }
+  make_payments(
+    amountl: string = "amount",
+    tol: string = "to",
+    froml: string = "from",
+  ) {
     for_graph(this.graph, (from: UUID, to: UUID, edge: edge) => {
-      if (edge.flow.gt(0) && edge.amount.gt(0)) {
-        this.payments.push({
+      if (edge.amount.gt(0)) {
+        this.split_payments.push({
           [amountl]: edge.amount,
           [froml]: from,
           [tol]: to,
@@ -69,48 +86,103 @@ export default class Split {
       }
     });
   }
+  reset_graph() {
+    for_graph(this.graph, (from: UUID, to: UUID, edge: edge) => {
+      edge.amount = Prisma.Decimal.min(edge.amount, remaining(edge));
+      edge.flow = Prisma.Decimal(0);
+      if (remaining(edge).eq(0) && remaining(edge.residual).eq(0)) {
+        graph_delete(this.graph, from, to);
+        graph_delete(this.graph, to, from);
+      }
+    });
+  }
+  dfs_remove_cycles() {
+    interface cycle {
+      begin: UUID;
+      min: Prisma.Decimal;
+      edges: edge[];
+    }
+    const visited = new Map(
+      Array.from(this.graph.keys()).map((node) => [node, false]),
+    );
+    const cur_path = new Map(
+      Array.from(this.graph.keys()).map((node) => [node, false]),
+    );
+    const dfs: (node: UUID) => cycle | null = (node: UUID) => {
+      if (cur_path.get(node))
+        return {
+          begin: node,
+          min: Prisma.Decimal(Infinity),
+          edges: [] as edge[],
+        };
+      if (visited.get(node)) return null;
+      visited.set(node, true);
+      cur_path.set(node, true);
+      for (const [to, edge] of this.graph.get(node) ?? []) {
+        while (true) {
+          if (remaining(edge).lte(0) && node !== ("temp" as UUID)) break;
+          let cycle = dfs(to);
+          if (cycle) {
+            cycle = {
+              begin: cycle.begin,
+              min: Prisma.Decimal.min(cycle.min, edge.amount),
+              edges: [edge, ...cycle.edges],
+            };
+            // console.log(node, cycle);
+            if (cycle.begin !== node) {
+              visited.set(node, false);
+              cur_path.set(node, false);
+              return cycle;
+            }
+            for (const cycle_edge of cycle.edges) {
+              cycle_edge.flow = cycle_edge.flow.plus(cycle.min);
+            }
+          } else break;
+        }
+      }
+      cur_path.set(node, false);
+      return null;
+    };
+    let unvisited;
+    while (
+      (unvisited = Array.from(this.graph.keys()).find((n) => !visited.get(n)))
+    ) {
+      graph_push(this.graph, "temp", unvisited, {} as edge);
+      dfs(unvisited);
+      graph_delete(this.graph, "temp", unvisited);
+    }
+  }
   construct_graph(
-    payments: any[],
     amountl = "amount",
     tol = "to",
     froml = "from",
   ): Map<UUID, Map<UUID, edge>> {
-    const graph: Map<UUID, Map<UUID, edge>> = new Map();
-    for (const pay of payments) {
+    for (const pay of this.payments) {
       const edge: edge = {
         amount: pay[amountl],
         flow: new Prisma.Decimal(0),
         residual: {} as edge,
-        rev: 0,
       };
       const residual_edge: edge = {
         amount: new Prisma.Decimal(0),
         flow: new Prisma.Decimal(0),
         residual: edge,
-        rev: 0,
       };
       edge.residual = residual_edge;
-      graph_push(graph, pay[froml], pay[tol], edge);
-      graph_push(graph, pay[tol], pay[froml], residual_edge);
+      graph_push(this.graph, pay[froml], pay[tol], edge);
+      graph_push(this.graph, pay[tol], pay[froml], residual_edge);
     }
-    return graph;
+    return this.graph;
   }
 }
 
 class MaxFlow {
-  rev: number;
   s: UUID;
   t: UUID;
   graph: Map<UUID, Map<UUID, edge>>;
   level_graph: Map<UUID, number>;
   maxflow: Prisma.Decimal;
-  constructor(
-    rev: number,
-    s: UUID,
-    t: UUID,
-    graph: Map<UUID, Map<UUID, edge>>,
-  ) {
-    this.rev = rev;
+  constructor(s: UUID, t: UUID, graph: Map<UUID, Map<UUID, edge>>) {
     this.graph = graph;
     this.s = s;
     this.t = t;
